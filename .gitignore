@@ -1,0 +1,19 @@
+﻿# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Build output
+bin/
+obj/
+
+# Local game/modding libraries
+Libs/
+
+# Compiled files
+*.dll
+*.pdb
+
+# Temporary files
+*.tmp
+*.log
