@@ -13,12 +13,12 @@ using HarmonyLib;
 /*
  * single line notes = //
  */
-namespace jakjakmooAleAndTaleThirdPerson
+namespace thejacksmoo_AleAndTale_TPV
 {
     [BepInPlugin(
-        "com.jakjakmoo.aleandtale.thirdperson",
-        "JakJakMoo Ale & Tale Third Person",
-        "0.1.0"
+        "com.thejacksmoo.aleandtale.tpv",
+        "TheJacksMoo Ale & Tale TPV",
+        "0.1.4"
     )]
     public class Plugin : BaseUnityPlugin
     {
@@ -96,7 +96,7 @@ namespace jakjakmooAleAndTaleThirdPerson
                 null
             );
 
-            harmony = new Harmony("com.jakjakmoo.aleandtale.thirdperson");
+            harmony = new Harmony("com.thejacksmoo.aleandtale.tpv");
 
             harmony.Patch(
                 AccessTools.Method(
