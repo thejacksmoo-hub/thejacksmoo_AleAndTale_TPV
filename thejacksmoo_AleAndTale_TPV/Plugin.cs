@@ -8,6 +8,8 @@ using System.Reflection;
  *      showing the FPV tool.
  */
 using HarmonyLib;
+// Dang dishwasher
+using System.Collections;
 
 
 /*
@@ -18,7 +20,7 @@ namespace thejacksmoo_AleAndTale_TPV
     [BepInPlugin(
         "com.thejacksmoo.aleandtale.tpv",
         "TheJacksMoo Ale & Tale TPV",
-        "0.1.4"
+        "0.1.5"
     )]
     public class Plugin : BaseUnityPlugin
     {
@@ -61,6 +63,7 @@ namespace thejacksmoo_AleAndTale_TPV
         private Harmony harmony;
         // Part of the fix for FPV tool showing when adding to hotbar
         private static Plugin Instance;
+
 
         private void Awake()
         {
@@ -167,6 +170,18 @@ namespace thejacksmoo_AleAndTale_TPV
                 postfix: new HarmonyMethod(
                     typeof(Plugin),
                     nameof(SurfaceSnapToolPostfix)
+                )
+            );
+
+            // Part of dishwasher zoom fix
+            harmony.Patch(
+                AccessTools.Method(
+                    typeof(Dishwasher),
+                    "MGCancel"
+                ),
+                postfix: new HarmonyMethod(
+                    typeof(Plugin),
+                    nameof(DishwasherMGCancelPostfix)
                 )
             );
 
@@ -387,6 +402,60 @@ namespace thejacksmoo_AleAndTale_TPV
                     renderer.enabled = visible;
                 }
             }
+        }
+
+        // Dishwasher fix
+        private IEnumerator RestoreThirdPersonAfterCameraReset()
+        {
+            // Dishwasher camera takes about 1 second to return to normal.
+            yield return new WaitForSeconds(1.1f);
+
+            if (!thirdPersonEnabled ||
+                PlayerMovement.Instance == null ||
+                PlayerMovement.Instance.mainCamera == null ||
+                PlayerNet.Instance == null ||
+                PlayerNet.Instance.playerAnimTP == null ||
+                PlayerNet.Instance.playerAnimTP.playerAvatar == null)
+            {
+                yield break;
+            }
+
+            Transform mainCamera =
+                PlayerMovement.Instance.mainCamera.transform;
+
+            Transform fpView =
+                mainCamera.parent;
+
+            Transform tpAvatar =
+                PlayerNet.Instance.playerAnimTP.playerAvatar.transform;
+
+            // Restore TPV camera height
+            Vector3 fpPosition = fpView.localPosition;
+            fpPosition.y = 1.8f;
+            fpView.localPosition = fpPosition;
+
+            // Restore TPV camera distance
+            Vector3 cameraPosition = mainCamera.localPosition;
+            cameraPosition.z = -2f;
+            mainCamera.localPosition = cameraPosition;
+
+            // Make sure TP character is still visible
+            PlayerNet.Instance.playerAnimTP.playerAvatar.SetVisible(true, true);
+
+            // Restore correct held-item visibility
+            SetHeldItemRenderers(fpView, "_fp(Clone)", false);
+            SetHeldItemRenderers(tpAvatar, "_tp(Clone)", true);
+        }
+
+        // Part of dishwasher fix
+        private static void DishwasherMGCancelPostfix()
+        {
+            if (Instance == null || !Instance.thirdPersonEnabled)
+                return;
+
+            Instance.StartCoroutine(
+                Instance.RestoreThirdPersonAfterCameraReset()
+            );
         }
     }
 }
