@@ -2,6 +2,8 @@
 using UnityEngine;
 using System.Reflection;
 
+// For all who look at this code...I'm so sorry it's a mess XD
+
 /*
  * Note for [using HarmonyLib;] : Added this so I can fix the issue of a new tool added  
  *      to the hotbar (like a newly purchased tool or a tool picked up from a chest) 
@@ -20,7 +22,7 @@ namespace thejacksmoo_AleAndTale_TPV
     [BepInPlugin(
         "com.thejacksmoo.aleandtale.tpv",
         "TheJacksMoo Ale & Tale TPV",
-        "0.1.5"
+        "0.1.7"
     )]
     public class Plugin : BaseUnityPlugin
     {
@@ -49,15 +51,20 @@ namespace thejacksmoo_AleAndTale_TPV
         private FieldInfo interactiveHitDistField;
         //Part of hotbar slot 1 handheld not showing on load
         private MethodInfo onSelectedHandItemDataIdMethod;
-        // Adding attack freeze frame for block animation since there is no existing block animation
+        // Adding attack freeze frame for block animation since there is no TPV block animation
         private FieldInfo playerAnimTPAnimatorField;
         private static readonly int axeChopAnimHash =
             Animator.StringToHash("Axe Chop");
         private FieldInfo invNumsGoField;
+        // Modifying attack animation to match hit speed
+        private static readonly int dualWeaponsHitAnimHash =
+            Animator.StringToHash("Dual Weapons Hit");
+        // More attack animation stuffs for TPV
+        private bool attackRecoverySkipped = false;
         // Part of furniture placement fix
         private Vector3 temporaryFPViewPosition;
         private Vector3 temporaryCameraPosition;
-        //A float is a [data type] that allows decimals rather than just a whole integer.
+        // A float is a [data type] that allows decimals rather than just a whole integer.
         private float originalInteractiveHitDist;
         // Part of the fix for FPV tool showing when adding to hotbar
         private Harmony harmony;
@@ -91,6 +98,7 @@ namespace thejacksmoo_AleAndTale_TPV
                 BindingFlags.Instance | BindingFlags.NonPublic
             );
 
+            // 
             onSelectedHandItemDataIdMethod = typeof(PlayerAnimTP).GetMethod(
                 "OnSelectedHandItemDataId",
                 BindingFlags.Instance | BindingFlags.NonPublic,
@@ -101,6 +109,7 @@ namespace thejacksmoo_AleAndTale_TPV
 
             harmony = new Harmony("com.thejacksmoo.aleandtale.tpv");
 
+            // Part of the fix for whent he FPV handheld would show when added to hotbar
             harmony.Patch(
                 AccessTools.Method(
                     typeof(PlayerInventory),
@@ -113,6 +122,7 @@ namespace thejacksmoo_AleAndTale_TPV
                 )
             );
 
+            // Part of the fix for whent he FPV handheld would show when added to hotbar
             harmony.Patch(
                 AccessTools.Method(
                     typeof(PlayerInventory),
@@ -190,7 +200,7 @@ namespace thejacksmoo_AleAndTale_TPV
         private void Update()
         {
 
-            // Blocking 65% freeze frame
+            // Blocking 65% freeze frame (looks best with sword, silly with axe lol)
             if (thirdPersonEnabled &&
                 PlayerInput.Instance != null &&
                 PlayerInventory.Instance != null &&
@@ -223,6 +233,60 @@ namespace thejacksmoo_AleAndTale_TPV
                         1,
                         0.65f
                     );
+                }
+            }
+
+            // Part of speeding up attack animation to make it match hit timing
+            if (thirdPersonEnabled &&
+                PlayerNet.Instance != null &&
+                PlayerNet.Instance.playerAnimTP != null &&
+                playerAnimTPAnimatorField != null)
+            {
+                Animator attackAnimator =
+                    (Animator)playerAnimTPAnimatorField.GetValue(
+                        PlayerNet.Instance.playerAnimTP
+                    );
+
+                if (attackAnimator != null)
+                {
+                    AnimatorStateInfo attackState =
+                        attackAnimator.GetCurrentAnimatorStateInfo(1);
+
+                    bool isAttackAnimation =
+                        attackState.shortNameHash == axeChopAnimHash ||
+                        attackState.shortNameHash == dualWeaponsHitAnimHash;
+
+                    // Don't speed up our frozen blocking pose.
+                    bool isBlocking =
+    PlayerInput.Instance != null &&
+    PlayerInput.Instance.GetAimInputHeld();
+
+                    bool isActiveAttack =
+                        isAttackAnimation && !isBlocking;
+
+                    if (isActiveAttack)
+                    {
+                        // Speed up attack
+                        
+                        if (attackState.normalizedTime <= 0.33f)
+                        {
+                            attackAnimator.speed = 1.5f;
+                        }
+                        else if (attackState.normalizedTime >= 0.66f)
+                        {
+                            attackAnimator.speed = 6f;
+                        }
+                        else
+                        {
+                            attackAnimator.speed = 3f;
+                        }
+
+                    }
+                    else
+                    {
+                        attackAnimator.speed = 1f;
+                        attackRecoverySkipped = false;
+                    }
                 }
             }
 
